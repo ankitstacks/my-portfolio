@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 import {
@@ -425,6 +425,8 @@ function TicTacToe() {
   );
 
   const [winner, setWinner] = useState(null);
+  const [isThinking, setIsThinking] = useState(false);
+  const moveTimer = useRef(null);
 
   const combinations = [
     [0, 1, 2],
@@ -455,11 +457,82 @@ function TicTacToe() {
     return null;
   };
 
+  /*
+     Minimax AI
+     -------------------------------------------------------
+     The computer evaluates every possible continuation and
+     chooses an optimal move. When multiple moves have the
+     same score, one is selected randomly so the computer does
+     not repeat the exact same opening every game.
+  */
+  const minimax = (position, isMaximizing, depth = 0) => {
+    const result = checkWinner(position);
+
+    if (result === "O") return 10 - depth;
+    if (result === "X") return depth - 10;
+    if (result === "draw") return 0;
+
+    const empty = position
+      .map((value, index) => (!value ? index : null))
+      .filter((index) => index !== null);
+
+    if (isMaximizing) {
+      let bestScore = -Infinity;
+
+      for (const index of empty) {
+        position[index] = "O";
+        const score = minimax(position, false, depth + 1);
+        position[index] = "";
+        bestScore = Math.max(bestScore, score);
+      }
+
+      return bestScore;
+    }
+
+    let bestScore = Infinity;
+
+    for (const index of empty) {
+      position[index] = "X";
+      const score = minimax(position, true, depth + 1);
+      position[index] = "";
+      bestScore = Math.min(bestScore, score);
+    }
+
+    return bestScore;
+  };
+
+  const getComputerMove = (position) => {
+    const empty = position
+      .map((value, index) => (!value ? index : null))
+      .filter((index) => index !== null);
+
+    if (!empty.length) return null;
+
+    let bestScore = -Infinity;
+    let bestMoves = [];
+
+    for (const index of empty) {
+      position[index] = "O";
+      const score = minimax(position, false, 0);
+      position[index] = "";
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMoves = [index];
+      } else if (score === bestScore) {
+        bestMoves.push(index);
+      }
+    }
+
+    return bestMoves[
+      Math.floor(Math.random() * bestMoves.length)
+    ];
+  };
+
   const play = (index) => {
-    if (board[index] || winner) return;
+    if (board[index] || winner || isThinking) return;
 
     const next = [...board];
-
     next[index] = "X";
 
     const humanWinner = checkWinner(next);
@@ -470,41 +543,59 @@ function TicTacToe() {
       return;
     }
 
-    const empty = next
-      .map((value, i) =>
-        !value ? i : null
-      )
+    const emptyAfterHuman = next
+      .map((value, i) => (!value ? i : null))
       .filter((i) => i !== null);
 
-    if (!empty.length) {
+    if (!emptyAfterHuman.length) {
       setBoard(next);
       setWinner("draw");
       return;
     }
 
-    const computerMove =
-      empty[
-        Math.floor(
-          Math.random() * empty.length
-        )
-      ];
-
-    next[computerMove] = "O";
-
     setBoard(next);
+    setIsThinking(true);
 
-    const computerWinner =
-      checkWinner(next);
+    moveTimer.current = setTimeout(() => {
+      const computerBoard = [...next];
+      const computerMove = getComputerMove(computerBoard);
 
-    if (computerWinner) {
-      setWinner(computerWinner);
-    }
+      if (computerMove === null) {
+        setIsThinking(false);
+        return;
+      }
+
+      computerBoard[computerMove] = "O";
+      setBoard(computerBoard);
+
+      const computerWinner = checkWinner(computerBoard);
+
+      if (computerWinner) {
+        setWinner(computerWinner);
+      }
+
+      setIsThinking(false);
+    }, 350);
   };
 
   const reset = () => {
+    if (moveTimer.current) {
+      clearTimeout(moveTimer.current);
+      moveTimer.current = null;
+    }
+
     setBoard(Array(9).fill(""));
     setWinner(null);
+    setIsThinking(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (moveTimer.current) {
+        clearTimeout(moveTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="mt-8">
@@ -513,13 +604,17 @@ function TicTacToe() {
           <button
             key={index}
             onClick={() => play(index)}
+            disabled={Boolean(value) || Boolean(winner) || isThinking}
             className="flex aspect-square
             items-center justify-center
             rounded-xl border
             border-white/10 bg-white/[0.03]
             text-3xl font-black transition
             hover:border-cyan-400/40
-            hover:bg-cyan-400/5"
+            hover:bg-cyan-400/5
+            disabled:cursor-not-allowed
+            disabled:hover:border-white/10
+            disabled:hover:bg-white/[0.03]"
           >
             <span
               className={
@@ -534,12 +629,20 @@ function TicTacToe() {
         ))}
       </div>
 
+      {isThinking && !winner && (
+        <p className="mt-5 text-center text-xs font-semibold text-cyan-300/70">
+          Computer is thinking...
+        </p>
+      )}
+
       {winner && (
         <div className="mt-6 text-center">
           <p className="text-xl font-bold">
             {winner === "draw"
               ? "It's a Draw!"
-              : `${winner} wins!`}
+              : winner === "X"
+                ? "You Win!"
+                : "Computer Wins!"}
           </p>
 
           <button
@@ -553,9 +656,9 @@ function TicTacToe() {
         </div>
       )}
 
-      {!winner && (
+      {!winner && !isThinking && (
         <p className="mt-5 text-center text-xs text-slate-600">
-          You are X · Computer is O
+          You are X · Computer is O · Hard Mode
         </p>
       )}
     </div>
