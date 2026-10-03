@@ -836,12 +836,107 @@ export default function App() {
     ["Contact", "contact"],
   ];
 
-  const scrollTo = (id) => {
-    document
-      .getElementById(id)
-      ?.scrollIntoView({
-        behavior: "smooth",
+  /* =======================================================
+     URL HASH NAVIGATION
+  ======================================================= */
+
+  useEffect(() => {
+    const updateHashFromScroll = () => {
+      const marker = window.scrollY + 180;
+      let currentSection = "home";
+
+      navItems.forEach(([, id]) => {
+        const section = document.getElementById(id);
+
+        if (section && section.offsetTop <= marker) {
+          currentSection = id;
+        }
       });
+
+      const nextHash = `#${currentSection}`;
+
+      if (window.location.hash !== nextHash) {
+        window.history.replaceState(
+          null,
+          "",
+          nextHash
+        );
+      }
+    };
+
+    const scrollToHash = () => {
+      const id = window.location.hash.replace(
+        "#",
+        ""
+      );
+
+      if (!id) return;
+
+      const section = document.getElementById(id);
+
+      if (section) {
+        setTimeout(() => {
+          section.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 50);
+      }
+    };
+
+    window.addEventListener(
+      "scroll",
+      updateHashFromScroll,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "popstate",
+      scrollToHash
+    );
+
+    window.addEventListener(
+      "hashchange",
+      scrollToHash
+    );
+
+    if (window.location.hash) {
+      scrollToHash();
+    } else {
+      updateHashFromScroll();
+    }
+
+    return () => {
+      window.removeEventListener(
+        "scroll",
+        updateHashFromScroll
+      );
+      window.removeEventListener(
+        "popstate",
+        scrollToHash
+      );
+      window.removeEventListener(
+        "hashchange",
+        scrollToHash
+      );
+    };
+  }, []);
+
+  const scrollTo = (id) => {
+    const section = document.getElementById(id);
+
+    if (!section) return;
+
+    window.history.pushState(
+      null,
+      "",
+      `#${id}`
+    );
+
+    section.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
 
     setMenuOpen(false);
   };
@@ -1087,7 +1182,7 @@ export default function App() {
 
       <section
         id="home"
-        className="relative flex
+        className="relative scroll-mt-24 flex
         min-h-screen items-center
         pt-28"
       >
@@ -1479,7 +1574,7 @@ export default function App() {
 
       <section
         id="about"
-        className="relative py-28"
+        className="relative scroll-mt-24 py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14">
@@ -1601,7 +1696,7 @@ export default function App() {
 
       <section
         id="skills"
-        className="relative py-28"
+        className="relative scroll-mt-24 py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14">
@@ -1763,7 +1858,7 @@ export default function App() {
 
       <section
         id="projects"
-        className="relative py-28"
+        className="relative scroll-mt-24 py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <div
@@ -1833,7 +1928,7 @@ export default function App() {
 
       <section
         id="arcade"
-        className="relative py-28"
+        className="relative scroll-mt-24 py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 text-center">
@@ -2005,7 +2100,7 @@ export default function App() {
 
       <section
         id="contact"
-        className="relative py-28"
+        className="relative scroll-mt-24 py-28"
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14">
